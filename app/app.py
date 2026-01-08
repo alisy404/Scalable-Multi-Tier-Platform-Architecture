@@ -1,46 +1,77 @@
+import psycopg2
 from fastapi import FastAPI
 from time import sleep
-from typing import Dict
-from config import APP_ENV
+from config import APP_ENV, DB_HOST, DB_NAME, DB_USER, DB_PASSWORD
+
+app = FastAPI(title="Tier-2 Database Service")
 
 
-app = FastAPI(title="Tier-1 Baseline Service")
+# -------------------------
+# Database Connection
+# -------------------------
+def get_db_connection():
+    return psycopg2.connect(
+        host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASSWORD
+    )
 
-# In-memory data store (will be replaced in Tier-2)
-DATA_STORE: Dict[int, str] = {
-    1: "alpha",
-    2: "beta",
-    3: "gamma"
-}
+
+# -------------------------
+# Startup: Init DB
+# -------------------------
+@app.on_event("startup")
+def init_db():
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS items (
+            id SERIAL PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    """
+    )
+
+    cur.execute(
+        """
+        INSERT INTO items (value)
+        SELECT * FROM (VALUES ('alpha'), ('beta'), ('gamma')) AS v(value)
+        WHERE NOT EXISTS (SELECT 1 FROM items)
+    """
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+# -------------------------
+# Routes
+# -------------------------
+@app.get("/")
+def root():
+    return {"message": "Tier-2 service running", "endpoints": ["/health", "/data/{id}"]}
+
 
 @app.get("/health")
 def health():
-    return {
-        "status": "ok",
-        "environment": APP_ENV
-    }
-    
+    return {"status": "ok", "environment": APP_ENV}
+
+
 @app.get("/data/{item_id}")
 def get_data(item_id: int):
-    # Simulate processing latency
     sleep(0.1)
 
-    value = DATA_STORE.get(item_id)
-    if not value:
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT value FROM items WHERE id = %s", (item_id,))
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    if not row:
         return {"error": "item not found"}
 
-    return {
-        "id": item_id,
-        "value": value,
-        "source": "memory"
-    }
-
-@app.get("/")
-def root():
-    return {
-        "message": "Tier-1 service running",
-        "available_endpoints": ["/health", "/data/{id}"]
-    }
-
-
-
+    return {"id": item_id, "value": row[0], "source": "database"}

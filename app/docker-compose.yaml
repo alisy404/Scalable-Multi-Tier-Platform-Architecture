@@ -8,4 +8,20 @@ services:
       - "8000:8000"
     environment:
       APP_ENV: development
-    restart: unless-stopped
+    # restart: unless-stopped
+      DB_HOST: db
+      DB_NAME: appdb
+      DB_USER: appuser
+      DB_PASSWORD: apppass
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+    container_name: tier2-db
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: apppass
+    ports:
+      - "5432:5432"
