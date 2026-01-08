@@ -2,6 +2,7 @@ import psycopg2
 from fastapi import FastAPI
 from time import sleep
 from config import APP_ENV, DB_HOST, DB_NAME, DB_USER, DB_PASSWORD
+import time
 
 app = FastAPI(title="Tier-2 Database Service")
 
@@ -9,10 +10,19 @@ app = FastAPI(title="Tier-2 Database Service")
 # -------------------------
 # Database Connection
 # -------------------------
-def get_db_connection():
-    return psycopg2.connect(
-        host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASSWORD
-    )
+def get_db_connection(retries=10, delay=5):
+    for attempt in range(retries):
+        try:
+            return psycopg2.connect(
+                host=DB_HOST,
+                database=DB_NAME,
+                user=DB_USER,
+                password=DB_PASSWORD
+            )
+        except psycopg2.OperationalError as e:
+            print(f"DB not ready (attempt {attempt+1}/{retries}), retrying...")
+            time.sleep(delay)
+    raise Exception("Database not available after retries")
 
 
 # -------------------------

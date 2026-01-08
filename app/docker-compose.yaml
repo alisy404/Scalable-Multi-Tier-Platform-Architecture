@@ -8,7 +8,6 @@ services:
       - "8000:8000"
     environment:
       APP_ENV: development
-    # restart: unless-stopped
       DB_HOST: db
       DB_NAME: appdb
       DB_USER: appuser
