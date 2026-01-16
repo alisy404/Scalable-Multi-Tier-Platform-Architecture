@@ -31,3 +31,7 @@ variable "ecr_repo_url" {
   description = "ECR repository URL for FastAPI image"
   type        = string
 }
+
+variable "alb_listener_arn" {
+  type = string
+}
